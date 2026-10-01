@@ -1,0 +1,19 @@
+services:
+  test-db:
+    image: postgres:18
+    environment:
+      POSTGRES_DB: delivery_integration_test
+      POSTGRES_USER: integration_user
+      POSTGRES_PASSWORD: integration_test_only
+    ports:
+      - "127.0.0.1:55432:5432"
+    tmpfs:
+      - /var/lib/postgresql
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U integration_user -d delivery_integration_test
+      interval: 2s
+      timeout: 3s
+      retries: 20
+      start_period: 5s

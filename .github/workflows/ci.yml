@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    name: Python and PostgreSQL tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      UV_PYTHON: "3.12"
+      RUN_INTEGRATION: "1"
+    steps:
+      - name: Check out project
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install uv
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          version: "0.12.19"
+          enable-cache: true
+      - name: Install Python
+        run: uv python install 3.12
+      - name: Install locked dependencies
+        run: uv sync --locked --group dev
+      - name: Check test database configuration
+        run: docker compose -f compose.test.yaml config --quiet
+      - name: Run all tests including real PostgreSQL
+        run: uv run --locked pytest -q
+      - name: Clean up test database
+        if: always()
+        run: docker compose -p delivery-eta-integration -f compose.test.yaml down --volumes
+
+  docker:
+    name: Docker build and import check
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out project
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build application image
+        run: docker build --tag delivery-eta:ci .
+      - name: Verify installed application and migration tools
+        run: |
+          docker run --rm delivery-eta:ci python -c "from delivery_intelligence_platform.api import app; from delivery_intelligence_platform.reporting import build_report; assert '/predict' in app.openapi()['paths']"
+          docker run --rm delivery-eta:ci alembic heads

@@ -51,3 +51,5 @@ venv/
 mlruns/
 artifacts/
 models/
+mlflow.db*
+.ruff_cache/

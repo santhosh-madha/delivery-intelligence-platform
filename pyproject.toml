@@ -1,16 +1,43 @@
 [project]
 name = "delivery-intelligence-platform"
 version = "0.1.0"
-description = "Add your description here"
+description = "Acceptance-time delivery ETA training and prediction"
 readme = "README.md"
 authors = [
     { name = "santhosh-madha", email = "madha.santhoshkr@gmail.com" }
 ]
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "catboost>=1.2.10",
+    "jupyter>=1.1.1",
+    "matplotlib>=3.11.2",
+    "numpy>=2.5.3",
+    "pandas>=3.0.6",
+    "scikit-learn>=1.9.1",
+    "mlflow>=3.0,<4",
+    "fastapi>=0.141.1",
+    "uvicorn[standard]>=0.54.0",
+    "pydantic>=2,<3",
+    "psycopg[binary]>=3,<4",
+    "python-dotenv>=1.2.3",
+    "sqlalchemy>=2,<3",
+    "alembic>=1,<2",
+]
 
 [project.scripts]
+eta-report = "delivery_intelligence_platform.reporting:main"
 delivery-intelligence-platform = "delivery_intelligence_platform:main"
+eta-train = "delivery_intelligence_platform.train:main"
+eta-predict = "delivery_intelligence_platform.cli:main"
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+    "pytest>=8",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
 
 [build-system]
 requires = ["uv_build>=0.12.15,<0.13.0"]
