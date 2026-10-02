@@ -132,3 +132,9 @@ Compose. Training does not start these services. Performance reporting is availa
 with `uv run --locked eta-report`; see [the reporting guide](docs/performance_reporting.md)
 for demo exclusion, coverage, model segments, and report limitations. GitHub Actions configuration is documented in
 [the CI guide](docs/continuous_integration.md). Hosted deployment remains a future milestone.
+
+
+## Model comparison
+
+See [the controlled Ridge, random forest, and CatBoost comparison](docs/model_comparison.md)
+for accuracy, training time, inference latency, and model-selection limitations.
