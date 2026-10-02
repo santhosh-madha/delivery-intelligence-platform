@@ -18,7 +18,7 @@ from sqlalchemy import (
     func,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
-from sqlalchemy.engine import URL
+from sqlalchemy.engine import URL, make_url
 
 
 metadata = MetaData()
@@ -97,29 +97,34 @@ def make_engine():
         **os.environ,
     }
 
-    required = (
-        "POSTGRES_DB",
-        "POSTGRES_USER",
-        "POSTGRES_PASSWORD",
-    )
-    missing = [name for name in required if not settings.get(name)]
-
-    if missing:
-        raise ValueError(
-            f"Missing database settings: {', '.join(missing)}"
+    cloud = settings.get("ETA_ENV") == "cloud"
+    connection_args = {"connect_timeout": 10}
+    if settings.get("DATABASE_URL"):
+        try:
+            url = make_url(settings["DATABASE_URL"])
+            if url.drivername not in ("postgres", "postgresql", "postgresql+psycopg"):
+                raise ValueError()
+            if not url.host or not url.database:
+                raise ValueError()
+            url = url.set(drivername="postgresql+psycopg")
+        except Exception:
+            raise ValueError("DATABASE_URL must be a valid PostgreSQL URL.") from None
+        # Override URL TLS options; never accept an insecure cloud downgrade.
+        connection_args.update(sslmode="verify-full", sslrootcert="system")
+    else:
+        if cloud:
+            raise ValueError("Cloud mode requires DATABASE_URL.")
+        required = ("POSTGRES_DB", "POSTGRES_USER", "POSTGRES_PASSWORD")
+        missing = [name for name in required if not settings.get(name)]
+        if missing:
+            raise ValueError(f"Missing database settings: {', '.join(missing)}")
+        url = URL.create(
+            drivername="postgresql+psycopg",
+            username=settings["POSTGRES_USER"], password=settings["POSTGRES_PASSWORD"],
+            host=settings.get("POSTGRES_HOST", "127.0.0.1"),
+            port=int(settings.get("POSTGRES_PORT", "5432")), database=settings["POSTGRES_DB"],
         )
-
-    url = URL.create(
-        drivername="postgresql+psycopg",
-        username=settings["POSTGRES_USER"],
-        password=settings["POSTGRES_PASSWORD"],
-        host=settings.get("POSTGRES_HOST", "127.0.0.1"),
-        port=int(settings.get("POSTGRES_PORT", "5432")),
-        database=settings["POSTGRES_DB"],
-    )
-
     return create_engine(
-        url,
-        pool_pre_ping=True,
-        connect_args={"connect_timeout": 5},
+        url, pool_pre_ping=True, pool_size=2, max_overflow=2,
+        pool_timeout=10, hide_parameters=True, connect_args=connection_args,
     )

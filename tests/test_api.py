@@ -239,3 +239,29 @@ def test_commit_failure_returns_503(client, fake_db_engine):
     assert response.json() == {
         "detail": "Could not save the prediction."
     }
+
+@pytest.mark.parametrize('supplied', [None, 'wrong-key'])
+def test_api_key_protects_both_write_endpoints(model_bundle, monkeypatch, fake_db_engine, supplied):
+    monkeypatch.setenv('ETA_API_KEY', 'a'*40)
+    headers = {} if supplied is None else {'X-API-Key': supplied}
+    with TestClient(create_app(model_bundle)) as client:
+        assert client.get('/live').status_code == 200
+        assert client.get('/health').status_code == 200
+        assert client.post('/predict', json=example_event(), headers=headers).status_code == 401
+        assert client.post('/predictions/18ebf362-723f-45dc-9baf-aca229ca4e32/outcome',
+                           json={'actual_arrival_unix_s':1666410120}, headers=headers).status_code == 401
+    fake_db_engine.begin.assert_not_called()
+
+
+def test_valid_api_key_allows_prediction(model_bundle, monkeypatch):
+    monkeypatch.setenv('ETA_API_KEY', 'a'*40)
+    with TestClient(create_app(model_bundle)) as client:
+        assert client.post('/predict', json=example_event(), headers={'X-API-Key':'a'*40}).status_code == 200
+
+
+def test_cloud_app_requires_key(model_bundle, monkeypatch):
+    monkeypatch.setenv('ETA_ENV', 'cloud')
+    monkeypatch.delenv('ETA_API_KEY', raising=False)
+    with pytest.raises(RuntimeError, match='ETA_API_KEY'):
+        with TestClient(create_app(model_bundle)):
+            pass

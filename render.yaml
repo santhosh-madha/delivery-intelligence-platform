@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: delivery-intelligence-api
+    runtime: docker
+    plan: free
+    region: virginia
+    branch: main
+    dockerfilePath: ./Dockerfile.cloud
+    dockerContext: .
+    healthCheckPath: /live
+    autoDeployTrigger: checksPass
+    envVars:
+      - key: ETA_ENV
+        value: cloud
+      - key: ETA_MODEL_DIR
+        value: /app/model
+      - key: DATABASE_URL
+        sync: false
+      - key: ETA_API_KEY
+        generateValue: true
+      - key: MODEL_URL
+        sync: false

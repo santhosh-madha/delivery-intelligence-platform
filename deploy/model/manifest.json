@@ -1,0 +1,13 @@
+{
+  "model_version": "87a38ec8f34d4ed0a47437a3b1e120ee",
+  "feature_contract": "acceptance_eta_v1",
+  "feature_columns": [
+    "order_age_at_acceptance_min",
+    "queue_age_at_acceptance_min",
+    "poi_id",
+    "da_id",
+    "courier_id",
+    "acceptance_hour"
+  ],
+  "model_sha256": "ef454c22a239bda7dce465ce3c7c316a551eff9349b59a66619afbbedbb114da"
+}

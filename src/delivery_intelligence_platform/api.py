@@ -11,12 +11,14 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 import logging
 import os
 import time
+import secrets
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Annotated, Literal
 
 import pandas as pd
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi.security import APIKeyHeader
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from .features import build_features
@@ -104,6 +106,10 @@ class DeliveryOutcomeResponse(BaseModel):
 def create_app(model_dir: str | Path | None = None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
+        api_key = os.environ.get("ETA_API_KEY", "")
+        if os.environ.get("ETA_ENV") == "cloud" and len(api_key) < 32:
+            raise RuntimeError("Cloud mode requires ETA_API_KEY with at least 32 characters.")
+        app.state.api_key = api_key
         configured_path = model_dir or os.environ.get("ETA_MODEL_DIR")
 
         if not configured_path:
@@ -190,7 +196,19 @@ def create_app(model_dir: str | Path | None = None) -> FastAPI:
             model_version=predictor.manifest["model_version"],
         )
 
-    @app.post("/predict", response_model=PredictionResponse)
+    key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
+
+    def authorize(request: Request, supplied: str | None = Depends(key_header)):
+        expected = getattr(request.app.state, "api_key", "")
+        if expected and (supplied is None or not secrets.compare_digest(supplied.encode(), expected.encode())):
+            raise HTTPException(status_code=401, detail="Invalid or missing API key.")
+
+    @app.get("/live")
+    def live(request: Request):
+        get_predictor(request)
+        return {"status": "alive"}
+
+    @app.post("/predict", response_model=PredictionResponse, dependencies=[Depends(authorize)])
     def predict(
         event: AcceptanceEvent, request: Request,
         data_source: Literal["demo", "real"] = "demo",
@@ -250,6 +268,7 @@ def create_app(model_dir: str | Path | None = None) -> FastAPI:
         "/predictions/{prediction_id}/outcome",
         response_model=DeliveryOutcomeResponse,
         status_code=201,
+        dependencies=[Depends(authorize)],
     )
     def record_outcome(
         prediction_id: UUID, event: DeliveryOutcomeEvent, request: Request,

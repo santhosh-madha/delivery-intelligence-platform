@@ -53,3 +53,6 @@ artifacts/
 models/
 mlflow.db*
 .ruff_cache/
+
+# Local staging copy; publish as a release asset, not in Git history.
+deploy/model/model.cbm

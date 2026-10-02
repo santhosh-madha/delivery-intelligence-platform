@@ -138,3 +138,8 @@ for demo exclusion, coverage, model segments, and report limitations. GitHub Act
 
 See [the controlled Ridge, random forest, and CatBoost comparison](docs/model_comparison.md)
 for accuracy, training time, inference latency, and model-selection limitations.
+
+## Cloud preparation
+
+See [the Render + Neon deployment guide](docs/cloud_deployment.md).
+Cloud configuration is prepared; no hosted deployment has been created yet.

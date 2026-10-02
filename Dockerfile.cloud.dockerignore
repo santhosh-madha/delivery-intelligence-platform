@@ -16,4 +16,3 @@ tests
 mlruns
 *.db
 *.db-*
-deploy/model/model.cbm
