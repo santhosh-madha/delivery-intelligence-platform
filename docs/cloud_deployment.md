@@ -1,10 +1,16 @@
-# Free cloud deployment preparation
+# Cloud deployment
 
-Target: a single Render Free Docker web service and a Neon Free PostgreSQL database.
-No cloud accounts, resources, releases, or deployments were created by preparation.
+I deployed the API on Render and the PostgreSQL database on Neon using their Free
+plans. The API is configured in Virginia; the database is in Ohio (`us-east-2`).
+The prediction and outcome flow was verified on October 2, 2026.
+
+- [API documentation](https://delivery-intelligence-api-2z5u.onrender.com/docs)
+- [Readiness check](https://delivery-intelligence-api-2z5u.onrender.com/health)
+
+The setup instructions below explain how to reproduce this deployment.
 Local Docker Compose continues to use `Dockerfile`; Render uses `Dockerfile.cloud`.
 
-## Prepared files
+## Deployment files
 
 - `render.yaml`: explicitly selects `plan: free`, one service, Virginia region,
   and deploys after GitHub checks pass. No paid database or disk is provisioned.
@@ -12,27 +18,23 @@ Local Docker Compose continues to use `Dockerfile`; Render uses `Dockerfile.clou
   Uvicorn worker on Render's `PORT`.
 - `deploy/model/manifest.json`: minimal serving metadata, without local paths,
   source snapshots, dataset records, or database credentials.
-- `deploy/model/model.cbm`: local staging copy, excluded from Git. Publish this
-  82 MB binary as a versioned release asset rather than adding it to Git history.
+- `deploy/model/model.cbm`: local staging copy, excluded from Git. The
+  82 MB binary is published as the `eta-v1` release asset, outside Git history.
 
-## First: publish code and the model asset
+## Published model
 
-Review and commit the cloud preparation code, configuration, minimal manifest,
-unit tests, and this guide. Do not add `.env` or the ignored model binary to Git.
-Push the commit and confirm CI passes.
+The [eta-v1 release](https://github.com/santhosh-madha/delivery-intelligence-platform/releases/tag/eta-v1)
+contains the serving model. Its checksum matches `deploy/model/manifest.json`.
+Set `MODEL_URL` to this public download URL:
 
-Create a GitHub release named `eta-v1` for the deployment commit and attach
-`deploy/model/model.cbm`. The expected checksum is already pinned in the minimal
-manifest. The public download URL would then be:
-
-```
+```text
 https://github.com/santhosh-madha/delivery-intelligence-platform/releases/download/eta-v1/model.cbm
 ```
 
-This URL will not work until the release is actually published. The build uses
-public HTTPS downloads: a private repository/private release needs a different
-artifact access setup. Keep the versioned asset stable. Check model/dataset sharing
-terms before publishing trained artifacts. No raw training data needs uploading.
+The build downloads the model and verifies its checksum. No raw training data is
+uploaded. For a future model version, publish a new versioned asset and update the
+manifest and deployment settings together; keep the existing release stable.
+A private release would need a different artifact access setup.
 
 ## Create Neon Free
 
@@ -85,14 +87,28 @@ and verify the row in Neon's SQL editor. Test unauthorized requests return 401.
 Allow a sleep/wake cycle and verify that model loading and prediction still work.
 Do not expose database credentials or API keys in screenshots.
 
-## Local checks completed / remaining
+## Verified results and limits
 
-The automated suite checks existing behavior, API key rejection/acceptance, TLS
-configuration enforcement, and checksum mismatch handling. A local cloud image
-build validates the staged model. Actual Neon TLS connectivity, Render build-time
-release download, wake-up behavior, and hosted memory use require real cloud
-accounts and are not yet verified. The earlier 512 MiB test was local ARM64,
-not Render's CPU/architecture. No paid capacity is enabled by these files.
+On October 2, 2026, I verified the deployed service with a synthetic demo request:
+
+| Check | Result |
+|---|---|
+| `/health` | `ready`, with the expected model version |
+| Authorized prediction | 32.264926 minutes, matching local inference |
+| Prediction persistence | Matching prediction ID stored in Neon as `demo` |
+| Missing API key | Request rejected |
+| Outcome recording | Simulated 35-minute duration; absolute error 2.735074 minutes |
+| Outcome persistence | Stored outcome joined to the correct prediction |
+
+The successful cloud deployment also exercised the release download, model
+verification, database migrations, and Neon TLS connection. The first deployment
+failed certificate verification; explicitly setting the certificate bundle path
+in `Dockerfile.cloud` fixed it without disabling verification.
+
+The cloud-preparation suite passed 61 tests locally. The model also loaded and
+predicted in a local container limited to 512 MiB. This was an ARM64 check, not a
+measurement of Render's peak memory. Sleep/wake behavior and sustained hosted load
+have not been verified. Demo outcomes do not establish real-world model accuracy.
 
 The API key limits who can write; it is not per-user authorization, a rate limiter,
 or a full abuse-protection system. This is a small private-access portfolio demo,
