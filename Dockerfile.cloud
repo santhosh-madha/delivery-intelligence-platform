@@ -32,6 +32,8 @@ COPY migrations ./migrations
 COPY deploy/model /app/model
 ARG MODEL_URL
 RUN MODEL_URL="$MODEL_URL" python -m delivery_intelligence_platform.cloud prepare-model
+# Psycopg binary bundles OpenSSL; explicitly locate Debian's trusted CA bundle.
+ENV SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
 ENV ETA_ENV=cloud ETA_MODEL_DIR=/app/model
 
 # Run the application as an ordinary user.

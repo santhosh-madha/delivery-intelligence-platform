@@ -45,7 +45,9 @@ terms before publishing trained artifacts. No raw training data needs uploading.
 
 The application accepts `DATABASE_URL` and uses Psycopg 3. It forces
 `sslmode=verify-full` plus `sslrootcert=system`, checking the server certificate and
-hostname even if the copied URL specifies weaker TLS. Local Compose retains its
+hostname even if the copied URL specifies weaker TLS. The cloud image sets
+`SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt` so Psycopg's bundled OpenSSL
+finds Debian's installed CA certificates. Local Compose retains its
 existing POSTGRES_* settings. The cloud startup refuses missing cloud credentials.
 
 ## Create Render Free
